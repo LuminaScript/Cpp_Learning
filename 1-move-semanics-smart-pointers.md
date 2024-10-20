@@ -54,10 +54,33 @@
     - Ownership: we cannot share (no copies are allowed)
         - cannot use copy constructor:
         ```cpp
-        std::unique_ptr<UDT> mike = std::nuique_ptr<UDT>(new UDT);
+        std::unique_ptr<UDT> mike = std::unique_ptr<UDT>(new UDT); // std::unique_ptr<UDT> create pointer, new UDT allocates memory
         std::unique_ptr<UDT> joe = mike; // error
         std::unique_ptr<UDT> joe = std::move(mike); // okay
         ```
     - Memory Leak: we don't have to delete (delete within the scope)
+
+- **Thinking**:
+    - **Can unique pointer points to memory address on stack?**
+        ```cpp
+        int main()
+        {
+            int i = 1;
+
+            std::unique_ptr<int> p1(&i);
+            *p1 = 2;
+
+            return 0;
+        }
+        ```
+        > ISSUE: std::unique_ptr is designed for managing dynamically allocated memory, taking ownership of the pointer upon construction. However, variables like int i; are allocated on the stack, not dynamically, and their ownership cannot be transferred.
+        > When the destructor of a std::unique_ptr attempts to delete the pointer it manages, it expects the pointer to have been allocated with new. Since stack-allocated variables are not created this way, using delete on them results in an error.
+        > In scenarios involving stack-allocated variables, it's recommended to use raw pointers or make a copy instead, as std::unique_ptr is intended exclusively for heap-allocated resources.
+
+
+
+
+
+
 
 
