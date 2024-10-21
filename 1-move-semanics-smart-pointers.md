@@ -78,29 +78,73 @@
         > In scenarios involving stack-allocated variables, it's recommended to use raw pointers or make a copy instead, as std::unique_ptr is intended exclusively for heap-allocated resources.
 
 - **Illustration of Execution Flow**
+    ```cpp
+        #include <iostream>
+        #include <memory>  // For std::unique_ptr
 
-```cpp=
+        class UDT {
+        public:
+            UDT() { 
+                std::cout << "UDT Constructor Called" << std::endl;
+            }
+            ~UDT() { 
+                std::cout << "UDT Destructor Called" << std::endl;
+            }
+        };
+
+        int main() {
+            std::unique_ptr<UDT> mike = std::unique_ptr<UDT>(new UDT);
+            return 0;
+        }
+
+    ```
+
+    - Constructor Called
+      new UDT → Memory allocated on heap → `UDT()` constructor called → "UDT Constructor Called"
+    - Destructor Called
+      Exiting main() → mike goes out of scope → `~UDT()` destructor called → "UDT Destructor Called"
+    Memory is deallocated by unique_ptr.
+
+
+### Shared Pointers
+```cpp
+std::shared_ptr<UDT> ptr2 = std::make_shared<UDT>();
+```
+- use_count: reference count is thread-safe (automatically updated)
+- object (UDT) destructor is called when last pointer out of scope (use_count == 0)
+
+    ```cpp
     #include <iostream>
-    #include <memory>  // For std::unique_ptr
-
-    class UDT {
-    public:
-        UDT() { 
-            std::cout << "UDT Constructor Called" << std::endl;
-        }
-        ~UDT() { 
-            std::cout << "UDT Destructor Called" << std::endl;
-        }
-    };
+    #include <memory>
 
     int main() {
-        std::unique_ptr<UDT> mike = std::unique_ptr<UDT>(new UDT);
+
+        {
+            // Creating our shared pointer
+            std::shared_ptr<UDT> ptr1 = std::make_shared<UDT>();
+
+            // Then, in a new scope, I share the resource
+            std::shared_ptr<UDT> ptr2 = ptr1;
+
+            // Our reference count is NOT updated with a weak_ptr
+            std::cout << "(inside scope) use count = " << ptr2.use_count() << std::endl;
+        } // Then, 'ptr2' is 'freed'
+
+        // Then we check our updated reference count
+        std::cout << "use count = " << ptr1.use_count() << std::endl;
+
+        std::cout << "We should see the destructor call before this line\n";
+
         return 0;
     }
 
-```
-
-### Shared Pointers
+    ```
+    
+### Weak Pointer
+- non-owning pointer, does not increase the reference count
+- usage: "safter way to have dangling pointers"
+- avoid break cycles 
+- expired();true if the managed object (the heap allocated memory) has already been deleted, false otherwise.
 
 
 
