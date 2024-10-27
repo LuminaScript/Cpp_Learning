@@ -300,16 +300,349 @@ Vector3f::Vector3f() : x(1.0f), y(2.0f), z(3.0f) {
 ```
 - Initialization Order Matters: Members are initialized in the order they are declared in the class, not the order in the initializer list.
 
-## Strutc in C++
+## Struct in C++
+struct vs class
+- class all member is by default private
+
 
 ## Resource Aquisition in Initialization RAII
 
-#3 RUl of Five - redcucing Memory allocation
+```cpp 
+#include <iostream>
+#include <stdexcept>
 
+class Collection {
+public:
+    // Constructor
+    Collection() {
+        data = new int[10];  // Allocate memory for 10 integers
+        try {
+            throw 20;  // Simulate an exception
+        } catch (int e) {
+            std::cout << "Exception caught: " << e << std::endl;
+        }
+    }
+
+    // Destructor
+    ~Collection() {
+        std::cout << "Destructor is called" << std::endl;
+        delete[] data;  // Properly free allocated memory
+    }
+
+    // Overloaded operator[] for non-const access
+    int& operator[](std::size_t idx) {
+        return data[idx];
+    }
+
+    // Overloaded operator[] for const access
+    const int& operator[](std::size_t idx) const {
+        return data[idx];
+    }
+
+private:
+    int* data;  // Pointer to dynamically allocated array
+};
+
+int main() {
+    Collection myCollection;  // Create a Collection object
+    myCollection[0] = 7;  // Modify the first element
+    std::cout << myCollection[0] << std::endl;  // Output the first element
+
+    // Program ends, destructor will be called automatically.
+    return 0;
+}
+
+```
+### RAII in Action:
+
+The constructor acquires a resource (dynamic memory) by allocating an array using new int[10].
+The destructor ensures the proper release of this resource by calling delete[] data when the object goes out of scope, preventing memory leaks.
+
+### Other Common RAII Use Cases:
+- File Handling: Automatically close files when the object managing them is destroyed.
+- Locks/Mutexes: Acquire a lock in the constructor and release it in the destructor to ensure thread-safety.
+- Memory Management: Manage dynamically allocated memory, as shown in this example, to avoid leaks and dangling pointers.
+- Sockets/Connections: Ensure network connections are properly opened and closed, even in case of exceptions.
+
+## RULE of Five - redcucing Memory allocation
+
+c++17 modern feature
+
+std::move called move assignment/constructor
+```cpp 
+// IntArray.hpp
+#pragma once
+#include <iostream>
+#include <string>
+
+// Class declaration
+class IntArray {
+public:
+    // Constructor
+    explicit IntArray(std::string name);
+
+    // Destructor
+    ~IntArray();
+
+    // Copy constructor
+    IntArray(const IntArray& rhs);
+
+    // Copy assignment operator
+    IntArray& operator=(const IntArray& rhs);
+
+    // Move constructor
+    IntArray(IntArray&& source) noexcept;
+
+    // Move assignment operator
+    IntArray& operator=(IntArray&& source) noexcept;
+
+private:
+    std::string m_name;
+    int* m_data;
+};
+
+// IntArray.cpp
+#include "IntArray.hpp"
+
+// Constructor
+IntArray::IntArray(std::string name) 
+    : m_name(std::move(name)), m_data(nullptr) {}
+
+// Destructor
+IntArray::~IntArray() {
+    delete m_data;
+    std::cout << m_name << " destroyed" << std::endl;
+}
+
+// Copy constructor
+IntArray::IntArray(const IntArray& rhs) 
+    : m_name(rhs.m_name), m_data(new int(*(rhs.m_data))) {}
+
+// Copy assignment operator
+IntArray& IntArray::operator=(const IntArray& rhs) {
+    if (this != &rhs) {
+        delete m_data;
+        m_name = rhs.m_name;
+        m_data = new int(*(rhs.m_data));
+    }
+    return *this;
+}
+
+// Move constructor
+IntArray::IntArray(IntArray&& source) noexcept 
+    : m_name(std::move(source.m_name)), m_data(source.m_data) {
+    source.m_data = nullptr;
+    std::cout << m_name << " was move constructed" << std::endl;
+}
+
+// Move assignment operator
+IntArray& IntArray::operator=(IntArray&& source) noexcept {// the function does not throw
+    if (this != &source) {
+        delete m_data;
+        m_name = std::move(source.m_name);
+        m_data = source.m_data;
+        source.m_data = nullptr;
+        std::cout << m_name << " used move assignment" << std::endl;
+    }
+    return *this;
+}
+
+// main.cpp
+#include <iostream>
+#include <string>
+#include <vector>
+#include "IntArray.hpp"
+
+IntArray foo() {
+    IntArray result("foo() created array");
+    return result; // Move constructor is invoked due to return value optimization (RVO)
+}
+
+int main() {
+    std::vector<IntArray> myArrays;
+    myArrays.reserve(10);  // Avoids reallocation during push_back
+
+    for (int i = 0; i < 10; ++i) {
+        IntArray temp(std::to_string(i));
+        myArrays.push_back(std::move(temp));  // Move constructor is called
+    }
+
+    return 0;
+}
+```
+The move constructor is called:
+- initialization: T a = std::move(b); or T a(std::move(b));, where b is of type T;
+- function argument passing: f(std::move(a));, where a is of type T and f is void f(T t);
+- function return: return a; inside a function such as T f(), where a is of type T which has a move constructor.
+
+Reference: https://en.cppreference.com/w/cpp/language/move_constructor 
 ## Friend functions
+The friend declaration appears in a class body and grants a function or another class access to private and protected members of the class where the friend declaration appears.
+### 1) Designates a function or several functions as friends of this class:
+```cpp
+class Y
+{
+    int data; // private member
+ 
+    // the non-member function operator<< will have access to Y's private members
+    friend std::ostream& operator<<(std::ostream& out, const Y& o);
+    friend char* X::foo(int); // members of other classes can be friends too
+    friend X::X(char), X::~X(); // constructors and destructors can be friends
+};
+ 
+// friend declaration does not declare a member function
+// this operator<< still needs to be defined, as a non-member
+std::ostream& operator<<(std::ostream& out, const Y& y)
+{
+    return out << y.data; // can access private member Y::data
+}
+```
 
+### 2) Defines & friends a non-member function
+```cpp 
+class X
+{
+    int a;
+ 
+    friend void friend_set(X& p, int i)
+    {
+        p.a = i; // this is a non-member function
+    }
+public:
+    void member_set(int i)
+    {
+        a = i; // this is a member function
+    }
+};
+```
+
+### 3) Designates class(s) as a friend of this class. 
+
+```cpp 
+class B {
+friend class A; // all members in class A has acess to all members in class B
+friend C; // only spefici functions (like construtcors or operators inside C are friends of B)
+friend class A, C; // supported in c++ 26
+};
+```
+## Initialization
+1. Default Initialization
+If an object is default-initialized, built-in types (like int) will not be initialized to any value, leaving them with indeterminate values unless it's part of a class with a constructor.
+Example:
+```cpp
+int x;  // Default-initialized, contains garbage value
+class A {
+public:
+    int a;
+};
+A obj;  // obj.a is default-initialized with garbage value
+```
+2. Value Initialization
+Initializes the object with zero or default values. Works for both built-in and user-defined types.
+Example:
+```cpp
+int x{};  // Value-initialized to 0
+class A {
+public:
+    int a;
+};
+A obj{};  // obj.a is value-initialized to 0
+```
+3. Direct Initialization
+Calls the constructor directly with the given arguments.
+Example:
+```cpp
+class A {
+public:
+    A(int x) { std::cout << "Value: " << x << std::endl; }
+};
+A obj(10);  // Direct initialization
+```
+4. Copy Initialization
+Used when an object is initialized by assigning a value or another object. In some cases, it can invoke copy or move constructors.
+Example:
+```cpp
+class A {
+public:
+    A(int x) { std::cout << "Constructor called with " << x << std::endl; }
+};
+A obj = 5;  // Copy initialization
+```
+Note: This can trigger implicit type conversions unless the constructor is marked as explicit.
+
+5. List Initialization (C++11 and later)
+Uses curly braces {} to initialize an object, supporting uniform initialization.
+Example:
+```cpp
+int x{10};  // List initialization
+class A {
+public:
+    A(int x, int y) { std::cout << "x: " << x << ", y: " << y << std::endl; }
+};
+A obj{5, 6};  // List initialization
+```
+6. Aggregate Initialization
+Direct initialization of aggregate types like structs and arrays using brace-enclosed lists.
+Example:
+```cpp
+struct Point {
+    int x, y;
+};
+Point p = {10, 20};  // Aggregate initialization
+int arr[3] = {1, 2, 3};  // Array initialization
+```
+7. Reference Initialization
+A reference must be initialized at the time of declaration.
+Example:
+```cpp
+int x = 10;
+int& ref = x;  // Reference initialization
+```
+8. Copy Elision
+Copy elision is an optimization where the compiler omits the creation of temporary objects, avoiding unnecessary copies or moves.
+Example:
+```cpp
+class A {
+public:
+    A() { std::cout << "A constructor\n"; }
+    A(const A&) { std::cout << "A copy constructor\n"; }
+};
+A createA() {
+    return A();  // Copy elision in effect (C++17 guarantees it)
+}
+int main() {
+    A obj = createA();  // Copy constructor may not be called
+}
+```
 ## explicit cnstructors and list initizliation to avoid conversions
+### Explicit Constructor: 
+> Specifies that a constructor or conversion function(since C++11)or deduction guide(since C++17) is explicit, that is, it cannot be used for implicit conversions and copy-initialization.
 
-# Inheritances
+```cpp 
+#include <iostream>
+#include <string>
 
-##
+class udt {
+public:
+    explicit udt(int);  // Explicit constructor
+
+private:
+    int m_variable;
+};
+
+// Constructor definition
+udt::udt(int i) {
+    m_variable = i;
+
+    std::cout << "m_variable: " << m_variable << std::endl;
+}
+
+int main() {
+    // Attempt to implicitly convert float to udt object
+    udt u1 = 500;  // Error due to explicit constructor
+    udt ul{500}; // okay
+    udt ul{300.0f}; // not okay
+
+    return 0;
+}
+```
