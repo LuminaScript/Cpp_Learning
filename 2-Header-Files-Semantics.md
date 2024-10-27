@@ -215,8 +215,90 @@ c = b;  // Avoid if possible; copy assignment can introduce overhead.
 ### 3. Pass by reference
 
 ## Operator overloading
+cpp.conference reference: 
+
+### binary operator overload semantic: +
+```cpp 
+Complex operator+(Complex const& obj) // does not return a reference
+{
+    Complex res;
+    res.real = real + obj.real;
+    res.imag = imag + obj.imag;
+    return res;
+}
+```
+### prefix / postfix increment
+```cpp 
+// prefix increment
+X& operator++()
+{
+    // actual increment takes place here
+    return *this; // return new value by reference
+}
+
+// postfix increment
+X operator++(int)
+{
+    X old = *this; // copy old value
+    operator++();  // prefix increment
+    return old;    // return old value
+}
+```
+### string operator (defined outside of class)
+```cpp 
+std::ostream& operator<<(std::ostream& os, const T& obj)
+{
+    // write obj to stream
+    return os;
+}
+ 
+std::istream& operator>>(std::istream& is, T& obj)
+{
+    // read obj from stream
+    if (/* T could not be constructed */)
+        is.setstate(std::ios::failbit);
+    return is;
+}
+```
+### Operator ==
+in class operator:
+```cpp 
+bool operator==(const vector3f& rhs) {
+    if (x == rhs.x && y == rhs.y && z == rhs.z) return true;
+    return false;
+}
+
+```
+free function:
+```cpp 
+bool operator==(const vector3f& lhs, const Vector3f& rhs) {
+    if (lhs.x == rhs.x && lhs.y == rhs.y && lhs.x == rhs.y) return true;
+    return false;
+    
+}
+```
 
 ## Memeber initializer Lists
+Vs assignmengt: This approach improves performance and ensures proper initialization order.
+
+### Example
+
+```cpp
+// Declaration
+class Vector3f {
+public:
+    Vector3f(); // Constructor declaration
+
+private:
+    float x, y, z; // Member variables
+};
+
+// Definition
+Vector3f::Vector3f() : x(1.0f), y(2.0f), z(3.0f) {
+    // Rule of thumb: Initialize members in the order of their declaration
+}
+```
+- Initialization Order Matters: Members are initialized in the order they are declared in the class, not the order in the initializer list.
 
 ## Strutc in C++
 
